@@ -19,6 +19,8 @@ void DumpDevices() {
   printf("GPU Device: %s\n", Platform::gpu_device()->ToString().c_str());
 }
 
+// This is a very simple example that doesn't handle different input very well
+// or run the cpu device.
 void ArraySum() {
   const int size = 64;
   const int global_size = size / 8;
@@ -30,7 +32,7 @@ void ArraySum() {
   for (int i = 0; i < size; ++i) data[i] = i;
   for (int i = 0; i < local_size; ++i) sum[i] = 0;
 
-  Context* ctx = Context::Create(Platform::default_device());
+  Context* ctx = Context::Create(Platform::gpu_device());
   Kernel* kernel = ctx->CreateKernel("kernels/add_numbers.cl", "add_numbers");
   Buffer* input_buffer =
       ctx->CreateBufferFromMem(Buffer::READ_ONLY, data, sizeof(data));
@@ -170,10 +172,10 @@ int main(int argc, char** argv) {
 
   DumpDevices();
   printf("\n");
-  ArraySum();
-  BitonicSort();
-  Map<float>(1024 * 1024, 1024 * 1024, 1000, "kernels/kernels.cl", "SimpleKernel");
-  Map<float>(1024 * 1024, 1024 * 1024 / 4, 1000, "kernels/kernels.cl", "SimpleKernel4");
+  //ArraySum();
+  //BitonicSort();
+  Map<float>(1024 * 1024, 1024 * 1024, 10000, "kernels/kernels.cl", "SimpleKernel");
+  Map<float>(1024 * 1024, 1024 * 1024 / 4, 10000, "kernels/kernels.cl", "SimpleKernel4");
 
   printf("Done.\n");
   return 0;

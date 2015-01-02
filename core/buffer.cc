@@ -37,3 +37,13 @@ bool Buffer::CopyFrom(CommandQueue* queue, const void* src_buffer, size_t buffer
   }
   return true;
 }
+
+bool Buffer::CopyTo(CommandQueue* queue, void* dst_buffer, size_t buffer_len) {
+  cl_int err = clEnqueueReadBuffer(queue->queue(), cl_buffer_, CL_TRUE, 0,
+      buffer_len, dst_buffer, 0, NULL, NULL);
+  if (err < 0) {
+    fprintf(stderr, "Could not read buffer: %s\n", Error(err));
+    return false;
+  }
+  return true;
+}

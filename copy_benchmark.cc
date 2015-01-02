@@ -12,6 +12,7 @@ const size_t TO_COPY = 20L * 1024L * 1024L * 1024L;
 
 #define CPU_CPU 0
 #define CPU_GPU 1
+#define GPU_CPU 2
 
 template <int mode>
 void Copy(size_t num_bytes, size_t batch_size, char* dummy) {
@@ -35,6 +36,9 @@ void Copy(size_t num_bytes, size_t batch_size, char* dummy) {
       } else if (mode == CPU_GPU) {
         gpu_buffer->CopyFrom(gpu_ctx->default_queue(), src + bytes_copied, to_copy);
         gpu_ctx->default_queue()->Flush();
+      } else if (mode == GPU_CPU) {
+        gpu_buffer->CopyTo(gpu_ctx->default_queue(), src + bytes_copied, to_copy);
+        gpu_ctx->default_queue()->Flush();
       }
       bytes_copied += to_copy;
     }
@@ -53,7 +57,7 @@ void Copy(size_t num_bytes, size_t batch_size, char* dummy) {
     cout << "CPU->CPU";
   } else if (mode == CPU_GPU) {
     cout << "CPU->GPU";
-  } else {
+  } else if (mode == GPU_CPU) {
     cout << "GPU->CPU";
   }
 
@@ -80,10 +84,11 @@ int main(int argc, char** argv) {
   Copy<CPU_CPU>(1024L * 1024L * 1024L, 8 * 1024L * 1024L, &dummy);
   */
 
-  Copy<CPU_CPU>(1024 * 1024L * 1024L, 1024 * 1024L, &dummy);
-  Copy<CPU_GPU>(1024 * 1024L * 1024L, 1024 * 1024L, &dummy);
-  Copy<CPU_GPU>(1024 * 1024L * 1024L, 16 * 1024 * 1024L, &dummy);
+  Copy<CPU_CPU>(1024 * 1024L * 1024L, 64 * 1024 * 1024L, &dummy);
+  //Copy<CPU_GPU>(1024 * 1024L * 1024L, 1024 * 1024L, &dummy);
+  //Copy<CPU_GPU>(1024 * 1024L * 1024L, 16 * 1024 * 1024L, &dummy);
   Copy<CPU_GPU>(1024 * 1024L * 1024L, 64 * 1024 * 1024L, &dummy);
+  Copy<GPU_CPU>(1024 * 1024L * 1024L, 64 * 1024 * 1024L, &dummy);
 
   printf("Done.\n");
   return dummy;

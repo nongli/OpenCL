@@ -25,6 +25,7 @@ class Buffer {
 
   void* Read(CommandQueue* queue);
   bool CopyFrom(CommandQueue* queue, const void* src_buffer, size_t buffer_len);
+  bool CopyTo(CommandQueue* queue, void* dst_buffer, size_t buffer_len);
 
   static cl_mem_flags to_cl_flags(AccessType t);
 
