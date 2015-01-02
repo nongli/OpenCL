@@ -4,20 +4,20 @@
 #include "common.h"
 
 std::string PrintBytes(long bytes);
-long timestamp_ms();
+double timestamp_ms();
 
 class ScopedTimeMeasure {
  public:
   ScopedTimeMeasure(const char* label) : label_(label), start_(timestamp_ms()) {}
   ~ScopedTimeMeasure() {
-    long end = timestamp_ms();
-    long delta = end - start_;
-    printf("%s: %ldms\n", label_, delta);
+    double end = timestamp_ms();
+    double delta = end - start_;
+    printf("%s: %fms\n", label_, delta);
   }
 
  private:
   const char* label_;
-  long start_;
+  double start_;
 };
 
 #endif

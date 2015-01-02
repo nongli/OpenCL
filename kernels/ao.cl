@@ -1,154 +1,109 @@
-#define M_PI 3.14159265
-#define NAO_SAMPLES 32
+#define M_PI 3.14159265f
+#define EPSILON 0.001f
 
-typedef struct _vec3 {
-  float x;
-  float y;
-  float z;
-  float w;
-} vec3;
+typedef struct _sphere {
+  float4 center;
+  float radius2;
+  float pad[3];
+} Sphere;
+
+typedef struct _plane {
+  float4 p;
+  float4 n;
+} Plane;
 
 typedef struct _intersect_pt {
   float t;
-  vec3 p;
-  vec3 n;
+  float4 p;
+  float4 n;
   int hit;
 } intersect_pt;
 
-typedef struct _sphere {
-  vec3 center;
-  float radius2;
-} sphere;
-
-typedef struct _plane {
-  vec3 p;
-  vec3 n;
-} plane;
-
 typedef struct _ray {
-  vec3 orig; 
-  vec3 dir;
-} ray;
+  float4 orig; 
+  float4 dir;
+} Ray;
 
-float vdot(vec3 *v0, vec3 *v1) {
-  return (v0->x * v1->x + v0->y * v1->y + v0->z * v1->z);
-}
-
-void vcross(vec3 *c, vec3 *v0, vec3 *v1) {
-  c->x = v0->y * v1->z - v0->z * v1->y;
-  c->y = v0->z * v1->x - v0->x * v1->z;
-  c->z = v0->x * v1->y - v0->y * v1->x;
-}
-
-void vnormalize(vec3 *v) {
-  float len = vdot(v, v);
-  len = sqrt(len);
-
-  if(len > 1.0e-17f) {
-    v->x /= len;
-    v->y /= len;
-    v->z /= len;
-  }
-}
-
-void ray_sphere_intersect(intersect_pt *isect, ray *ray, sphere *sphere) {
-  vec3 rs;
-  float B,C,D;
-
-  rs.x = ray->orig.x - sphere->center.x;
-  rs.y = ray->orig.y - sphere->center.y;
-  rs.z = ray->orig.z - sphere->center.z;
-
-  B = vdot(&rs, &(ray->dir));
-  C = vdot(&rs, &rs) - sphere->radius2;
-  D = B * B - C;
-
-  if(D > 0.0f) {
-    float t= -B - sqrt(D);
-    if((t > 0.0f) && (t < isect->t )) {
+inline void ray_sphere_intersect(intersect_pt* isect, const Ray* ray, constant Sphere* sphere) {
+  float4 rs = ray->orig - sphere->center;
+  float B = dot(rs, ray->dir);
+  float C = dot(rs, rs) - sphere->radius2;
+  float D = B * B - C;
+  if (D > 0.0f) {
+    float t = -B - sqrt(D);
+    if ((t > EPSILON) && (t < isect->t )) {
       isect->t = t;
       isect->hit = 1;
-
-      isect->p.x = ray->orig.x + ray->dir.x * t;
-      isect->p.y = ray->orig.y + ray->dir.y * t;
-      isect->p.z = ray->orig.z + ray->dir.z * t;
-    
-      isect->n.x = isect->p.x - sphere->center.x;
-      isect->n.y = isect->p.y - sphere->center.y;
-      isect->n.z = isect->p.z - sphere->center.z;
-
-      vnormalize(&(isect->n));
+      isect->p = ray->orig + ray->dir * t;
+      isect->n = normalize(isect->p - sphere->center);
     }
   }
 }
 
-void ray_plane_intersect(intersect_pt *isect, ray *ray, plane *plane) {
-  float d, v, t;
-  d = -vdot(&(plane->p), &(plane->n));
-  v = vdot(&ray->dir, &(plane->n));
+inline int ray_sphere_occlude(const Ray* ray, constant Sphere* sphere) {
+  float4 rs = ray->orig - sphere->center;
+  float B = dot(rs, ray->dir);
+  float C = dot(rs, rs) - sphere->radius2;
+  float D = B * B - C;
+  if (D > 0.0f) {
+    float t = -B - sqrt(D);
+    return t > EPSILON;
+  }
+  return 0;
+}
 
+inline void ray_plane_intersect(intersect_pt* isect, const Ray* ray, const Plane* plane) {
+  float v = dot(ray->dir, plane->n);
   if (fabs(v) < 1.0e-17f) return;
-
-  t = -(vdot(&(ray->orig), &(plane->n)) + d) / v;
-
-  if ((t > 0.0f) && (t < isect->t)) {
+  float d = -dot(plane->p, plane->n);
+  float t = -(dot(ray->orig, plane->n) + d) / v;
+  if ((t > EPSILON) && (t < isect->t)) {
     isect->t = t;
     isect->hit = 1;
-
-    isect->p.x = ray->orig.x + ray->dir.x * t;
-    isect->p.y = ray->orig.y + ray->dir.y * t;
-    isect->p.z = ray->orig.z + ray->dir.z * t;
-
-    isect->n.x = plane->n.x;
-    isect->n.y = plane->n.y;
-    isect->n.z = plane->n.z;
+    isect->p = ray->orig + ray->dir * t;
+    isect->n = plane->n;
   }
 }
 
-void orthoBasis(vec3* basis, vec3* n) {
-  basis[2].x = n->x;
-  basis[2].y = n->y;
-  basis[2].z = n->z;
-  basis[1].x = 0.0f;
-  basis[1].y = 0.0f;
-  basis[1].z = 0.0f;
+inline int ray_plane_occlude(const Ray* ray, const Plane* plane) {
+  float v = dot(ray->dir, plane->n);
+  if (fabs(v) < 1.0e-17f) return 0;
+  float d = -dot(plane->p, plane->n);
+  float t = -(dot(ray->orig, plane->n) + d) / v;
+  return t > EPSILON;
+}
 
-  if ((n->x < 0.6f) && (n->x > -0.6f)) {
+void orthoBasis(float4 basis[3], float4 n) {
+  basis[1] = 0;
+  basis[2] = n;
+
+  if ((n.x < 0.6f) && (n.x > -0.6f)) {
     basis[1].x = 1.0f;
-  } else if((n->y < 0.6f) && (n->y > -0.6f)) {
+  } else if((n.y < 0.6f) && (n.y > -0.6f)) {
     basis[1].y = 1.0f;
-  } else if((n->z < 0.6f) && (n->z > -0.6f)) {
+  } else if((n.z < 0.6f) && (n.z > -0.6f)) {
     basis[1].z = 1.0f;
   } else {
     basis[1].x = 1.0f;
   }
 
-  vcross(&basis[0], &basis[1], &basis[2]);
-  vnormalize(&basis[0]);
-
-  vcross(&basis[1], &basis[2], &basis[0]);
-  vnormalize(&basis[1]);
+  basis[0] = normalize(cross(basis[1], basis[2]));
+  basis[1] = normalize(cross(basis[2], basis[0]));
 }
 
 float ambient_occlusion(
-    constant sphere *spheres, plane *planes, intersect_pt *isect, int *seed, int nao_samples) {
-  int i, j;
+    constant Sphere* spheres, Plane* plane, intersect_pt *isect, int *seed, int nao_samples) {
   int ntheta = nao_samples;
   int nphi = nao_samples;
-  float eps = .0001f;
 
-  vec3 p;
-  vec3 basis[3];
+  float4 basis[3];
+  orthoBasis(basis, isect->n);
+
   float occlusion = 0.0f;
+  float4 p = isect->p + EPSILON * isect->n;
 
-  p.x = isect->p.x + eps * isect->n.x;
-  p.y = isect->p.y + eps * isect->n.y;
-  p.z = isect->p.z + eps * isect->n.z;
-
-  orthoBasis(basis, &(isect->n));
-
-  for(j=0;j<ntheta;j++) {
-    for(i=0;i<nphi;i++) {
+  for (int j = 0; j < ntheta; ++j) {
+    for (int i = 0; i < nphi; ++i) {
       *seed = (int)(fmod((float)(*seed)*1364.0f+626.0f, 509.0f));
       float rand1 = (*seed)/(509.0f);
       
@@ -158,8 +113,9 @@ float ambient_occlusion(
       float theta = sqrt(rand1);
       float phi = 2.0f * M_PI * rand2;
 
-      float x = cos(phi) * theta;
-      float y = sin(phi) * theta;
+      float x;
+      float y = sincos(phi, &x) * theta;
+      x *= theta;
       float z = sqrt(1.0f - theta * theta);
 
       //local->global
@@ -167,30 +123,15 @@ float ambient_occlusion(
       float ry = x * basis[0].y + y * basis[1].y + z * basis[2].y;
       float rz = x * basis[0].z + y * basis[1].z + z * basis[2].z;
 
-      ray ray1;
-      intersect_pt occ_intersect;
+      Ray ray;
+      ray.orig = p;
+      ray.dir = (float4)(rx, ry, rz, 0);
 
-      ray1.orig = p;
-      ray1.dir.x = rx;
-      ray1.dir.y = ry;
-      ray1.dir.z = rz;
-
-      occ_intersect.t = 1.0e+17f;
-      occ_intersect.hit = 0;
-
-      sphere sphere0 = spheres[0];
-      sphere sphere1 = spheres[1];
-      sphere sphere2 = spheres[2];
-      plane *plane0 = planes;
-
-      ray_sphere_intersect(&occ_intersect, &ray1, &sphere0);
-      ray_sphere_intersect(&occ_intersect, &ray1, &sphere1);
-      ray_sphere_intersect(&occ_intersect, &ray1, &sphere2);
-      ray_plane_intersect(&occ_intersect, &ray1, plane0);
-      
-      if(occ_intersect.hit) {
-        occlusion += 1.0f;
+      int hit = ray_plane_occlude(&ray, plane);
+      for (int s = 0; s < 3 && hit == 0; ++s) {
+        hit |= ray_sphere_occlude(&ray, spheres + s);
       }
+      if (hit) occlusion += 1.0f;
     }
   }
 
@@ -198,7 +139,7 @@ float ambient_occlusion(
 }
 
 kernel void traceOnePixel(global float *fimg, 
-    constant sphere *spheres, constant plane *planes, int h, int w, int nsubsamples, int nao_samples) {
+    constant Sphere* spheres, constant Plane* planes, int h, int w, int nsubsamples, int nao_samples) {
   int gid = get_global_id(0);
   int x = gid % w;
   int y = gid / w;
@@ -206,46 +147,29 @@ kernel void traceOnePixel(global float *fimg,
   float temp = gid * 4525434.0f ;
   int seed = (int)(fmod(temp, 65536.0f));
 
-  int u,v;
- 
-  for(v = 0; v <  nsubsamples; v++) {
-    for(u = 0;u< nsubsamples; u++) {
+  Plane plane = planes[0];
+
+  for (int v = 0; v <  nsubsamples; ++v) {
+    for (int u = 0; u< nsubsamples; ++u) {
       float px = (x + (u/(float)nsubsamples) - (w/2.0f)) / (w/2.0f);
       float py = -(y + (v/(float)nsubsamples) - (h/2.0f)) / (h/2.0f);
 
-      ray ray1;
+      Ray ray;
+      ray.orig = 0.0f;
+      ray.dir = (float4)(px, py, -1.0f, 0);
+      ray.dir = normalize(ray.dir);
+
       intersect_pt isect;
-
-      ray1.orig.x = 0.0f;
-      ray1.orig.y = 0.0f;
-      ray1.orig.z = 0.0f;
-
-      ray1.dir.x = px;
-      ray1.dir.y = py;
-      ray1.dir.z = -1.0f;
-      vnormalize(&ray1.dir);
-
       isect.t = 1.0e+17f;
       isect.hit = 0;
 
-      sphere sphere0 = spheres[0];
-      sphere sphere1 = spheres[1];
-      sphere sphere2 = spheres[2];
-      plane plane0;
-      plane0.p.x = planes->p.x;
-      plane0.p.y = planes->p.y;
-      plane0.p.z = planes->p.z;
-      plane0.n.x = planes->n.x;
-      plane0.n.y = planes->n.y;
-      plane0.n.z = planes->n.z;
-
-      ray_sphere_intersect(&isect, &ray1, &sphere0);
-      ray_sphere_intersect(&isect, &ray1, &sphere1);
-      ray_sphere_intersect(&isect, &ray1, &sphere2);
-      ray_plane_intersect(&isect, &ray1, &plane0);
+      for (int s = 0; s < 3; ++s) {
+        ray_sphere_intersect(&isect, &ray, spheres + s);
+      }
+      ray_plane_intersect(&isect, &ray, &plane);
 
       if (isect.hit) {
-        fimg[gid] += ambient_occlusion(spheres, &plane0, &isect, &seed, nao_samples);
+        fimg[gid] += ambient_occlusion(spheres, &plane, &isect, &seed, nao_samples);
       }
     }
   }

@@ -10,12 +10,16 @@
 
 using namespace std;
 
+#define EPSILON      0.001
+
+// OCL - 4.8s
+// CPU - 104 s
 #define WIDTH        512
 #define HEIGHT       512
 #define NSUBSAMPLES  3
 #define NAO_SAMPLES  32
-#define EPSILON      0.001
 
+// Shared with opencl, must be packed identically.
 struct Vec {
   float x;
   float y;
@@ -23,22 +27,23 @@ struct Vec {
   float w;
 };
 
+// Shared with opencl, must be packed identically.
+struct Sphere {
+  Vec    center;
+  float radius2;
+  float pad[3];
+};
+
+// Shared with opencl, must be packed identically.
+struct Plane {
+  Vec    p;
+  Vec    n;
+};
+
 struct Isect {
   float     t;
   Vec        p;
   Vec        n;
-  Vec const* basis;
-};
-
-struct Sphere {
-  Vec    center;
-  float radius2;
-};
-
-struct Plane {
-  Vec    p;
-  Vec    n;
-  Vec    basis[3];
 };
 
 struct Ray {
@@ -94,10 +99,13 @@ static bool SphereIntersection(Isect* isect, const Ray* ray, const Sphere* spher
   if (occlusion_only) return true;
 
   isect->t = t;
+  isect->p.x = ray->org.x + ray->dir.x * t;
+  isect->p.y = ray->org.y + ray->dir.y * t;
+  isect->p.z = ray->org.z + ray->dir.z * t;
+
   isect->n.x = isect->p.x - sphere->center.x;
   isect->n.y = isect->p.y - sphere->center.y;
   isect->n.z = isect->p.z - sphere->center.z;
-  isect->basis = NULL;
   return true;
 }
 
@@ -112,8 +120,10 @@ static bool PlaneIntersection(Isect* isect, const Ray* ray, const Plane* plane) 
   if ((t > EPSILON) && (occlusion_only || t < isect->t)) {
     if (occlusion_only) return true;
     isect->t = t;
+    isect->p.x = ray->org.x + ray->dir.x * t;
+    isect->p.y = ray->org.y + ray->dir.y * t;
+    isect->p.z = ray->org.z + ray->dir.z * t;
     isect->n = plane->n;
-    isect->basis = plane->basis;
     return true;
   }
   return false;
@@ -145,13 +155,9 @@ float AmbientOcclusion(Isect* isect) {
   int    ntheta = NAO_SAMPLES;
   int    nphi   = NAO_SAMPLES;
 
-  Vec basis_mem[3];
-  Vec const* basis = isect->basis;
-  if (basis == NULL) {
-    VNormalize(&isect->n);
-    OrthoBasis(basis_mem, isect->n);
-    basis = basis_mem;
-  }
+  Vec basis[3];
+  VNormalize(&isect->n);
+  OrthoBasis(basis, isect->n);
 
   float occlusion = 0.0;
 
@@ -214,7 +220,6 @@ void Render(unsigned char* img, int w, int h, int nsubsamples) {
 
           Isect isect;
           isect.t   = 1.0e+17;
-          isect.basis = NULL;
 
           bool hit = false;
           hit |= SphereIntersection<false>(&isect, &ray, &spheres[0]);
@@ -223,9 +228,6 @@ void Render(unsigned char* img, int w, int h, int nsubsamples) {
           hit |= PlaneIntersection<false>(&isect, &ray, &plane);
           if (!hit) continue;
 
-          isect.p.x = ray.org.x + ray.dir.x * isect.t;
-          isect.p.y = ray.org.y + ray.dir.y * isect.t;
-          isect.p.z = ray.org.z + ray.dir.z * isect.t;
           ao += AmbientOcclusion(&isect);
         }
       }
@@ -239,6 +241,9 @@ void Render(unsigned char* img, int w, int h, int nsubsamples) {
 }
 
 void InitScene() {
+  memset(spheres, 0, sizeof(spheres));
+  memset(&plane, 0, sizeof(plane));
+
   spheres[0].center.x = -2.0;
   spheres[0].center.y =  0.0;
   spheres[0].center.z = -3.5;
@@ -260,10 +265,10 @@ void InitScene() {
   plane.n.x = 0.0;
   plane.n.y = 1.0;
   plane.n.z = 0.0;
-  OrthoBasis(plane.basis, plane.n);
 }
 
 void SavePPM(const char* fname, int w, int h, unsigned char* img) {
+  ScopedTimeMeasure("Save time");
   FILE* fp = fopen(fname, "wb");
   fprintf(fp, "P6\n");
   fprintf(fp, "%d %d\n", w, h);
@@ -273,19 +278,19 @@ void SavePPM(const char* fname, int w, int h, unsigned char* img) {
 }
 
 void RenderOpenCl(unsigned char* img) {
-  float* image = new float[WIDTH * HEIGHT];
-  memset(image, 0, sizeof(float) * WIDTH * HEIGHT);
+  float* ao = (float*)malloc(sizeof(float) * WIDTH * HEIGHT);
+  memset(ao, 0, sizeof(float) * WIDTH * HEIGHT);
 
   Context* ctx = Context::Create(Platform::default_device());
-  Buffer* image_buffer = ctx->CreateBufferFromMem(
-      Buffer::READ_WRITE, image, sizeof(float) * WIDTH * HEIGHT);
+  Buffer* result_buffer = ctx->CreateBufferFromMem(
+      Buffer::READ_WRITE, ao, sizeof(float) * WIDTH * HEIGHT);
   Buffer* spheres_buffer = ctx->CreateBufferFromMem(
       Buffer::READ_ONLY, spheres, sizeof(spheres));
   Buffer* plane_buffer  = ctx->CreateBufferFromMem(
       Buffer::READ_ONLY, &plane, sizeof(plane));
 
   Kernel* kernel = ctx->CreateKernel("kernels/ao.cl", "traceOnePixel");
-  kernel->SetArg(0, image_buffer);
+  kernel->SetArg(0, result_buffer);
   kernel->SetArg(1, spheres_buffer);
   kernel->SetArg(2, plane_buffer);
   kernel->SetArg(3, (cl_int)HEIGHT);
@@ -293,15 +298,19 @@ void RenderOpenCl(unsigned char* img) {
   kernel->SetArg(5, (cl_int)NSUBSAMPLES);
   kernel->SetArg(6, (cl_int)NAO_SAMPLES);
 
-  ctx->default_queue()->EnqueueKernel(kernel, WIDTH * HEIGHT);
-  image_buffer->Read(ctx->default_queue());
+  {
+    ScopedTimeMeasure("Render time");
+    ctx->default_queue()->EnqueueKernel(kernel, WIDTH * HEIGHT);
+    result_buffer->Read(ctx->default_queue());
+  }
 
   for (int i = 0; i < WIDTH * HEIGHT; ++i) {
-    img[i * 3 + 0] = Clamp(image[i]);
+    img[i * 3 + 0] = Clamp(ao[i]);
     img[i * 3 + 1] = img[i * 3];
     img[i * 3 + 2] = img[i * 3];
   }
 
+  free(ao);
   delete ctx;
 }
 
@@ -318,6 +327,7 @@ int main(int argc, char** argv) {
   SavePPM("ao_cpu.ppm", WIDTH, HEIGHT, img);
 #endif
 
+  free(img);
   printf("Done.\n");
   return 0;
 }

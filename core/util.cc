@@ -18,8 +18,13 @@ string PrintBytes(long bytes) {
   return ss.str();
 }
 
-long timestamp_ms() {
+#include <CoreServices/CoreServices.h>
+#include <mach/mach.h>
+#include <mach/mach_time.h>
+#include <unistd.h>
+
+double timestamp_ms() {
   struct timeval t;
   gettimeofday(&t, 0);
-  return t.tv_sec * 1000L + t.tv_usec / 1000;
+  return t.tv_sec * 1000L + t.tv_usec / 1000.;
 }
