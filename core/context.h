@@ -24,6 +24,7 @@ class Buffer {
   ~Buffer();
 
   void* Read(CommandQueue* queue);
+  bool CopyFrom(CommandQueue* queue, const void* src_buffer, size_t buffer_len);
 
   static cl_mem_flags to_cl_flags(AccessType t);
 
@@ -166,6 +167,7 @@ class Context {
   cl_int err_; // Last error.
 
   std::map<std::string, Program*> programs_;
+  std::vector<Kernel*> kernels_;
   std::vector<CommandQueue*> command_queues_;
   std::vector<Buffer*> buffers_;
 };

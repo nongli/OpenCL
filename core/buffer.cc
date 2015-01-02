@@ -28,3 +28,12 @@ void* Buffer::Read(CommandQueue* queue) {
   return host_ptr_;
 }
 
+bool Buffer::CopyFrom(CommandQueue* queue, const void* src_buffer, size_t buffer_len) {
+  cl_int err = clEnqueueWriteBuffer(queue->queue(), cl_buffer_, false,
+      0, buffer_len, src_buffer, 0, NULL, NULL);
+  if (err < 0) {
+    fprintf(stderr, "Could not write buffer: %s\n", Error(err));
+    return false;
+  }
+  return true;
+}

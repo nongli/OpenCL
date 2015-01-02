@@ -8,7 +8,9 @@ project (OpenCLTest)
 # cause another cmake executable to run. The same process will walk through
 # the project's entire directory structure.
 
-set(SRC_FILES
+set(CMAKE_CXX_FLAGS "-Wall -framework OpenCL -g -O3")
+
+add_library(Core STATIC
   core/buffer.cc
   core/context.cc
   core/error.cc
@@ -17,7 +19,8 @@ set(SRC_FILES
   core/util.cc
 )
 
-set(CMAKE_CXX_FLAGS "-Wall -framework OpenCL -g -O3")
+add_executable(example ${SRC_FILES} example.cc)
+target_link_libraries(example Core)
 
-#add_executable(example ${SRC_FILES} example.cc)
-add_executable(memcpy ${SRC_FILES} copy_benchmark.cc)
+add_executable(copy_benchmark copy_benchmark.cc)
+target_link_libraries(copy_benchmark Core)

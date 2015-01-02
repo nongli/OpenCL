@@ -20,6 +20,18 @@ Context::Context(const DeviceInfo* device) : device_(device), ctx_(NULL), err_(0
 }
 
 Context::~Context() {
+  for (map<string, Program*>::iterator it = programs_.begin(); it != programs_.end(); ++it) {
+    delete it->second;
+  }
+  for (int i = 0; i < kernels_.size(); ++i) {
+    delete kernels_[i];
+  }
+  for (int i = 0; i < command_queues_.size(); ++i) {
+    delete command_queues_[i];
+  }
+  for (int i = 0; i < buffers_.size(); ++i) {
+    delete buffers_[i];
+  }
   if (ctx_ != NULL) clReleaseContext(ctx_);
 }
 
@@ -86,6 +98,7 @@ Kernel* Context::CreateKernel(Program* program, const char* fn_name) {
   kernel->fn_name_ = fn_name;
   kernel->kernel_ = kern;
   kernel->max_work_group_size_ = size;
+  kernels_.push_back(kernel);
   return kernel;
 }
 

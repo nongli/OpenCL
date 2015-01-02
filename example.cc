@@ -31,7 +31,7 @@ void ArraySum() {
   for (int i = 0; i < local_size; ++i) sum[i] = 0;
 
   Context* ctx = Context::Create(Platform::default_device());
-  Kernel* kernel = ctx->CreateKernel("add_numbers.cl", "add_numbers");
+  Kernel* kernel = ctx->CreateKernel("kernels/add_numbers.cl", "add_numbers");
   Buffer* input_buffer =
       ctx->CreateBufferFromMem(Buffer::READ_ONLY, data, sizeof(data));
   Buffer* sum_buffer =
@@ -130,7 +130,7 @@ void BitonicSort() {
   {
     ScopedTimeMeasure m("BitonicSort setup");
     ctx = Context::Create(Platform::default_device());
-    kernel = ctx->CreateKernel("bitonic_sort.cl", "BitonicSort");
+    kernel = ctx->CreateKernel("kernels/bitonic_sort.cl", "BitonicSort");
     buffer = ctx->CreateBufferFromMem(
         Buffer::READ_WRITE, input, sizeof(int) * input_size);
 
@@ -170,10 +170,10 @@ int main(int argc, char** argv) {
 
   DumpDevices();
   printf("\n");
-  //ArraySum();
-  //BitonicSort();
-  Map<float>(1024 * 1024, 1024 * 1024, 1000, "kernels.cl", "SimpleKernel");
-  Map<float>(1024 * 1024, 1024 * 1024 / 4, 1000, "kernels.cl", "SimpleKernel4");
+  ArraySum();
+  BitonicSort();
+  Map<float>(1024 * 1024, 1024 * 1024, 1000, "kernels/kernels.cl", "SimpleKernel");
+  Map<float>(1024 * 1024, 1024 * 1024 / 4, 1000, "kernels/kernels.cl", "SimpleKernel4");
 
   printf("Done.\n");
   return 0;
