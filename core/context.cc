@@ -72,7 +72,26 @@ Program* Context::CreateProgramFromSrc(const char* source, size_t size) {
   }
   err_ = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
   if (err_ < 0) {
-    fprintf(stderr, "Could not build program.");
+    fprintf(stderr, "Could not build program: %s\n", Error(err_));
+    size_t log_size;
+    err_ = clGetProgramBuildInfo(
+        program, device_->device(), CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
+    if (err_ < 0) {
+      fprintf(stderr, "Could not get build log size: %s\n", Error(err_));
+      return NULL;
+    }
+    vector<char> log;
+    log.resize(log_size + 1);
+    err_ = clGetProgramBuildInfo(
+        program, device_->device(), CL_PROGRAM_BUILD_LOG, log_size, &log[0], NULL);
+    if (err_ < 0) {
+      fprintf(stderr, "Could not get build log: %s\n", Error(err_));
+      return NULL;
+    }
+    fprintf(stderr, "BUILD LOG\n");
+    fprintf(stderr, "**************************************************************************\n");
+    fprintf(stderr, "%s\n", &log[0]);
+    fprintf(stderr, "**************************************************************************\n");
     return NULL;
   }
   return new Program(program);

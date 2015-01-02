@@ -24,3 +24,6 @@ target_link_libraries(example Core)
 
 add_executable(copy_benchmark copy_benchmark.cc)
 target_link_libraries(copy_benchmark Core)
+
+add_executable(ambient_occlusion ambient_occlusion.cc)
+target_link_libraries(ambient_occlusion Core)

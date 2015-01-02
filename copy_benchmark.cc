@@ -14,6 +14,9 @@ const size_t TO_COPY = 20L * 1024L * 1024L * 1024L;
 #define CPU_GPU 1
 #define GPU_CPU 2
 
+// CPU->CPU (1GB src, 64MB batch): 6.21311 GB/s
+// CPU->GPU (1GB src, 64MB batch): 4.32059 GB/s
+// GPU->CPU (1GB src, 64MB batch): 3.00978 GB/s
 template <int mode>
 void Copy(size_t num_bytes, size_t batch_size, char* dummy) {
   if (batch_size > num_bytes) batch_size = num_bytes;
