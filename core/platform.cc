@@ -16,6 +16,15 @@ DeviceInfo* Platform::default_device_;
 DeviceInfo* Platform::cpu_device_;
 DeviceInfo* Platform::gpu_device_;
 
+string VersionToString(DeviceInfo::Version::Type t) {
+  switch (t) {
+    case DeviceInfo::Version::OPEN_CL_1_0: return "1.0";
+    case DeviceInfo::Version::OPEN_CL_1_1: return "1.1";
+    case DeviceInfo::Version::OPEN_CL_1_2: return "1.2";
+    case DeviceInfo::Version::OPEN_CL_2_0: return "2.0";
+  }
+}
+
 string DeviceInfo::ToString(bool detail) const {
   stringstream ss;
   ss << "Device " << name
@@ -23,6 +32,7 @@ string DeviceInfo::ToString(bool detail) const {
   if (!detail) return ss.str();
 
   ss << "  Vendor: " << vendor_string << endl
+     << "  Version: " << VersionToString(version) << endl
      << "  NumComputeUnits: " << num_compute_units << endl
      << "  MaxWorkGroupSize: " << max_work_group_size << endl
      << "  MaxLocalMem: " << PrintBytes(max_local_mem) << endl
@@ -36,6 +46,10 @@ string DeviceInfo::ToString(bool detail) const {
   return ss.str();
 }
 
+static bool set_contains(const unordered_set<string>& s, const string& v) {
+  return s.find(v) != s.end();
+}
+
 DeviceInfo::Vendor::Type ParseVendor(const string& vendor_string) {
   if (iequals(vendor_string, "intel")) {
     return DeviceInfo::Vendor::INTEL;
@@ -43,8 +57,15 @@ DeviceInfo::Vendor::Type ParseVendor(const string& vendor_string) {
   return DeviceInfo::Vendor::UNKNOWN;
 }
 
-static bool set_contains(const unordered_set<string>& s, const string& v) {
-  return s.find(v) != s.end();
+DeviceInfo::Version::Type ParseVesion(const string& version_str) {
+  if (iequals(version_str, "opencl 1.1")) {
+    return DeviceInfo::Version::OPEN_CL_1_1;
+  } else if (iequals(version_str, "opencl 1.2")) {
+    return DeviceInfo::Version::OPEN_CL_1_2;
+  } else if (iequals(version_str, "opencl 2.0")) {
+    return DeviceInfo::Version::OPEN_CL_2_0;
+  }
+  return DeviceInfo::Version::OPEN_CL_1_0;
 }
 
 void ParseExtensions(const string& str, DeviceInfo* info) {
@@ -84,8 +105,12 @@ bool GetDeviceInfo(DeviceInfo* info, cl_device_id id) {
   info->id = id,
   clGetDeviceInfo(id, CL_DEVICE_NAME, sizeof(buf), buf, NULL);
   info->name = buf;
+
   clGetDeviceInfo(id, CL_DEVICE_VERSION, sizeof(buf), buf, NULL);
-  info->version = buf;
+  info->version_str = buf;
+  info->version_str.erase(info->version_str.find_last_not_of(" ") + 1);
+  info->version = ParseVesion(info->version_str);
+
   clGetDeviceInfo(id, CL_DEVICE_VENDOR, sizeof(buf), buf, NULL);
   info->vendor_string = buf;
   info->vendor = ParseVendor(info->vendor_string);

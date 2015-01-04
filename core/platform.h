@@ -15,6 +15,15 @@ struct DeviceInfo {
     };
   };
 
+  struct Version {
+    enum Type {
+      OPEN_CL_1_0,
+      OPEN_CL_1_1,
+      OPEN_CL_1_2,
+      OPEN_CL_2_0,
+    };
+  };
+
   std::string ToString(bool detail = false) const;
 
   bool is_cpu() const { return type == CL_DEVICE_TYPE_CPU; }
@@ -23,7 +32,8 @@ struct DeviceInfo {
 
   cl_device_id id;
   std::string name;
-  std::string version;
+  std::string version_str;
+  Version::Type version;
   std::string vendor_string;
   Vendor::Type vendor;
   cl_device_type type;
