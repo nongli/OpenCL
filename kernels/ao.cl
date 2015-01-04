@@ -35,6 +35,12 @@ typedef struct _ray {
   float4 dir;
 } Ray;
 
+inline float UniformRand(long* seed) {
+  *seed = (*seed * 0x5DEECE66DL + 0xBL) & ((1L << 48) - 1);
+  int v = (int)*seed;
+  return fabs(v / (float)INT_MAX);
+}
+
 inline int RaySphereOcclude(const Ray* ray, constant Sphere* sphere) {
   float4 rs = ray->orig - sphere->center;
   float B = dot(rs, ray->dir);
@@ -103,7 +109,7 @@ inline void OrthoBasis(float4 basis[3], float4 n) {
 }
 
 inline float AmbientOcclusion(float px, float py,
-    constant Sphere* spheres, Plane* plane, int* seed, int nao_samples) {
+    constant Sphere* spheres, Plane* plane, long* seed, int nao_samples) {
   Ray ray;
   ray.orig = 0.0f;
   ray.dir = to_float4(px, py, -1.0f, 0);
@@ -126,17 +132,11 @@ inline float AmbientOcclusion(float px, float py,
   float4 basis[3];
   OrthoBasis(basis, isect.n);
 
-  float occlusion = 0.0f;
+  float visible = 0.0f;
   for (int j = 0; j < ntheta; ++j) {
     for (int i = 0; i < nphi; ++i) {
-      *seed = (int)(fmod((float)(*seed)*1364.0f+626.0f, 509.0f));
-      float rand1 = (*seed)/(509.0f);
-      
-      *seed = (int)(fmod((float)(*seed)*1364.0f+626.0f, 509.0f));
-      float rand2 = (*seed)/(509.0f);
-
-      float theta = sqrt(rand1);
-      float phi = 2.0f * M_PI * rand2;
+      float theta = sqrt(UniformRand(seed));
+      float phi = 2.0f * M_PI * UniformRand(seed);
 
       float x;
       float y = sincos(phi, &x) * theta;
@@ -154,23 +154,22 @@ inline float AmbientOcclusion(float px, float py,
       for (int s = 0; s < 3 && hit == 0; ++s) {
         hit |= RaySphereOcclude(&ray, spheres + s);
       }
-      if (hit) occlusion += 1.0f;
+      if (!hit) visible += 1.0f;
     }
   }
 
-  return (ntheta * nphi - occlusion) / (float)(ntheta * nphi);
+  return visible / (float)(ntheta * nphi);
 }
 
 kernel void traceOnePixel(global float *fimg, 
-    constant Sphere* spheres, constant Plane* planes, int h, int w, int nsubsamples, int nao_samples) {
-  int gid = get_global_id(0);
+    constant Sphere* spheres, constant Plane* planes, int h, int w, 
+    int nsubsamples, int nao_samples) {
+  long gid = get_global_id(0);
   int x = gid % w;
   int y = gid / w;
 
-  float temp = gid * 4525434.0f ;
-  int seed = (int)(fmod(temp, 65536.0f));
-
   Plane plane = planes[0];
+  long seed = gid;
 
   for (int v = 0; v <  nsubsamples; ++v) {
     for (int u = 0; u< nsubsamples; ++u) {

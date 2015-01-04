@@ -10,12 +10,14 @@
 
 using namespace std;
 
-// OCL - 4.8s
-// CPU - 104 s
+// OCL - 2.20s
+// CPU - 81.7s
 #define WIDTH        512
 #define HEIGHT       512
 #define NSUBSAMPLES  3
 #define NAO_SAMPLES  32
+
+//#define NAO_SAMPLES  16
 
 // Include the opencl file and cross compile it.
 #include "shim/shim_begin.h"
@@ -33,11 +35,10 @@ unsigned char Clamp(float f) {
 }
 
 void Render(unsigned char* img, int w, int h, int nsubsamples) {
-  int gid = 0;
+  long gid = 0;
   for (int y = 0; y < h; y++) {
     for (int x = 0; x < w; x++) {
-      float temp = gid++ * 4525434.0f ;
-      int seed = (int)(fmod(temp, 65536.0f));
+      long seed = gid;
       float ao = 0;
       for (int v = 0; v < nsubsamples; v++) {
         for (int u = 0; u < nsubsamples; u++) {
@@ -134,10 +135,12 @@ int main(int argc, char** argv) {
 
   unsigned char* img = (unsigned char*)malloc(WIDTH * HEIGHT * 3);
   InitScene();
-#if 1
+#if 0
+  printf("Rendering with opencl.\n");
   RenderOpenCl(img);
   SavePPM("ao_cl.ppm", WIDTH, HEIGHT, img);
 #else
+  printf("Rendering with cpu.\n");
   Render(img, WIDTH, HEIGHT, NSUBSAMPLES);
   SavePPM("ao_cpu.ppm", WIDTH, HEIGHT, img);
 #endif
