@@ -38,7 +38,7 @@ DeviceInfo::Vendor::Type ParseVendor(const string& vendor_string) {
 }
 
 bool GetDeviceInfo(DeviceInfo* info, cl_device_id id) {
-  char buf[128];
+  char buf[1024];
 
   info->id = id,
   clGetDeviceInfo(id, CL_DEVICE_NAME, sizeof(buf), buf, NULL);
@@ -48,6 +48,19 @@ bool GetDeviceInfo(DeviceInfo* info, cl_device_id id) {
   clGetDeviceInfo(id, CL_DEVICE_VENDOR, sizeof(buf), buf, NULL);
   info->vendor_string = buf;
   info->vendor = ParseVendor(info->vendor_string);
+
+  // TODO
+  // cl_khr_global_int32_base_atomics
+  // cl_khr_global_int32_extended_atomics
+  // cl_khr_local_int32_base_atomics
+  // cl_khr_local_int32_extended_atomics
+  // cl_khr_int64_base_atomics
+  // cl_khr_int64_extended_atomics
+  //
+  // cl_khr_fp64
+  // cl_khr_byte_addressable_store
+  // clGetDeviceInfo(id, CL_DEVICE_EXTENSIONS, sizeof(buf), buf, NULL);
+  //printf("%s\n", buf);
 
   clGetDeviceInfo(
       id, CL_DEVICE_TYPE, sizeof(cl_device_type), &info->type, NULL);
