@@ -15,9 +15,10 @@ using namespace std;
 #define WIDTH        512
 #define HEIGHT       512
 #define NSUBSAMPLES  3
-#define NAO_SAMPLES  32
+//#define NAO_SAMPLES  (32*32)
 
-//#define NAO_SAMPLES  16
+#define NAO_SAMPLES  1600
+//#define NAO_SAMPLES  8
 
 // Include the opencl file and cross compile it.
 #include "shim/shim_begin.h"
@@ -57,30 +58,16 @@ void Render(unsigned char* img, int w, int h, int nsubsamples) {
 }
 
 void InitScene() {
-  memset(spheres, 0, sizeof(spheres));
-  memset(&plane, 0, sizeof(plane));
-
-  spheres[0].center.x = -2.0;
-  spheres[0].center.y =  0.0;
-  spheres[0].center.z = -3.5;
+  spheres[0].center = to_float4(-2.0, 0, -3.5, 0);
   spheres[0].radius2 = 0.5 * 0.5;
-
-  spheres[1].center.x = -0.5;
-  spheres[1].center.y =  0.0;
-  spheres[1].center.z = -3.0;
+  spheres[1].center = to_float4(-0.5, 0, -3.0, 0);
   spheres[1].radius2 = 0.5 * 0.5;
-
-  spheres[2].center.x =  1.0;
-  spheres[2].center.y =  0.0;
-  spheres[2].center.z = -2.2;
+  spheres[2].center = to_float4(1.0, 0, -2.2, 0);
   spheres[2].radius2 = 0.5 * 0.5;
 
-  plane.p.x = 0.0;
-  plane.p.y = -0.5;
-  plane.p.z = 0.0;
-  plane.n.x = 0.0;
-  plane.n.y = 1.0;
-  plane.n.z = 0.0;
+  float4 plane_p(0, -0.5, 0, 0);
+  plane.n = to_float4(0, 1, 0, 0);
+  plane.d = -dot(plane_p, plane.n);
 }
 
 void SavePPM(const char* fname, int w, int h, unsigned char* img) {
@@ -135,7 +122,7 @@ int main(int argc, char** argv) {
 
   unsigned char* img = (unsigned char*)malloc(WIDTH * HEIGHT * 3);
   InitScene();
-#if 0
+#if 1
   printf("Rendering with opencl.\n");
   RenderOpenCl(img);
   SavePPM("ao_cl.ppm", WIDTH, HEIGHT, img);

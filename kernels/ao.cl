@@ -19,15 +19,16 @@ typedef struct _sphere {
 } Sphere;
 
 typedef struct _plane {
-  float4 p;
+  //float4 p;
   float4 n;
+  float d;
+  float pad[3];
 } Plane;
 
 typedef struct _intersect_pt {
   float t;
   float4 p;
   float4 n;
-  int hit;
 } Isect;
 
 typedef struct _ray {
@@ -53,7 +54,7 @@ inline int RaySphereOcclude(const Ray* ray, constant Sphere* sphere) {
   return 0;
 }
 
-inline void RaySphereIntersect(Isect* isect, const Ray* ray, constant Sphere* sphere) {
+inline int RaySphereIntersect(Isect* isect, const Ray* ray, constant Sphere* sphere) {
   float4 rs = ray->orig - sphere->center;
   float B = dot(rs, ray->dir);
   float C = dot(rs, rs) - sphere->radius2;
@@ -61,33 +62,33 @@ inline void RaySphereIntersect(Isect* isect, const Ray* ray, constant Sphere* sp
   if (D > 0.0f) {
     float t = -B - sqrt(D);
     if ((t > EPSILON) && (t < isect->t )) {
-      isect->hit = 1;
       isect->t = t;
       isect->p = ray->orig + ray->dir * t;
       isect->n = normalize(isect->p - sphere->center);
+      return 1;
     }
   }
+  return 0;
 }
 
 inline int RayPlaneOcclude(const Ray* ray, const Plane* plane) {
   float v = dot(ray->dir, plane->n);
   if (fabs(v) < 1.0e-17f) return 0;
-  float d = -dot(plane->p, plane->n);
-  float t = -(dot(ray->orig, plane->n) + d) / v;
+  float t = -(dot(ray->orig, plane->n) + plane->d) / v;
   return t > EPSILON;
 }
 
-inline void RayPlaneIntersect(Isect* isect, const Ray* ray, const Plane* plane) {
+inline int RayPlaneIntersect(Isect* isect, const Ray* ray, const Plane* plane) {
   float v = dot(ray->dir, plane->n);
-  if (fabs(v) < 1.0e-17f) return;
-  float d = -dot(plane->p, plane->n);
-  float t = -(dot(ray->orig, plane->n) + d) / v;
+  if (fabs(v) < 1.0e-17f) return 0;
+  float t = -(dot(ray->orig, plane->n) + plane->d) / v;
   if ((t > EPSILON) && (t < isect->t)) {
     isect->t = t;
-    isect->hit = 1;
     isect->p = ray->orig + ray->dir * t;
     isect->n = plane->n;
+    return 1;
   }
+  return 0;
 }
 
 inline void OrthoBasis(float4 basis[3], float4 n) {
@@ -112,53 +113,48 @@ inline float AmbientOcclusion(float px, float py,
     constant Sphere* spheres, Plane* plane, long* seed, int nao_samples) {
   Ray ray;
   ray.orig = 0.0f;
-  ray.dir = to_float4(px, py, -1.0f, 0);
-  ray.dir = normalize(ray.dir);
+  ray.dir = normalize(to_float4(px, py, -1.0f, 0));
 
   Isect isect;
   isect.t = 1.0e+17f;
-  isect.hit = 0;
 
+  int hit = 0;
   for (int s = 0; s < 3; ++s) {
-    RaySphereIntersect(&isect, &ray, spheres + s);
+    hit |= RaySphereIntersect(&isect, &ray, spheres + s);
   }
-  RayPlaneIntersect(&isect, &ray, plane);
-  if (!isect.hit) return 0;
-
-  int ntheta = nao_samples;
-  int nphi = nao_samples;
+  hit |= RayPlaneIntersect(&isect, &ray, plane);
+  if (!hit) return 0;
 
   ray.orig = isect.p + isect.n * EPSILON;
   float4 basis[3];
   OrthoBasis(basis, isect.n);
 
   float visible = 0.0f;
-  for (int j = 0; j < ntheta; ++j) {
-    for (int i = 0; i < nphi; ++i) {
-      float theta = sqrt(UniformRand(seed));
-      float phi = 2.0f * M_PI * UniformRand(seed);
+  for (int i = 0; i < nao_samples; ++i) {
+    float theta = sqrt(UniformRand(seed));
+    float phi = 2.0f * M_PI * UniformRand(seed);
 
-      float x;
-      float y = sincos(phi, &x) * theta;
-      x *= theta;
-      float z = sqrt(1.0f - theta * theta);
+    float x;
+    float y = sincos(phi, &x) * theta;
+    x *= theta;
+    float z = sqrt(1.0f - theta * theta);
 
-      //local->global
-      float rx = x * basis[0].x + y * basis[1].x + z * basis[2].x;
-      float ry = x * basis[0].y + y * basis[1].y + z * basis[2].y;
-      float rz = x * basis[0].z + y * basis[1].z + z * basis[2].z;
+    // local->global
+    float rx = x * basis[0].x + y * basis[1].x + z * basis[2].x;
+    float ry = x * basis[0].y + y * basis[1].y + z * basis[2].y;
+    float rz = x * basis[0].z + y * basis[1].z + z * basis[2].z;
 
-      ray.dir = to_float4(rx, ry, rz, 0);
+    // Already normalized.
+    ray.dir = to_float4(rx, ry, rz, 0);
 
-      int hit = RayPlaneOcclude(&ray, plane);
-      for (int s = 0; s < 3 && hit == 0; ++s) {
-        hit |= RaySphereOcclude(&ray, spheres + s);
-      }
-      if (!hit) visible += 1.0f;
+    hit = RayPlaneOcclude(&ray, plane);
+    for (int s = 0; s < 3 && hit == 0; ++s) {
+      hit |= RaySphereOcclude(&ray, spheres + s);
     }
+    visible += !hit;
   }
 
-  return visible / (float)(ntheta * nphi);
+  return visible / (float)(nao_samples);
 }
 
 kernel void traceOnePixel(global float *fimg, 
