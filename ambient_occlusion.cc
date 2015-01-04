@@ -122,6 +122,7 @@ int main(int argc, char** argv) {
 
   unsigned char* img = (unsigned char*)malloc(WIDTH * HEIGHT * 3);
   InitScene();
+
 #if 1
   printf("Rendering with opencl.\n");
   RenderOpenCl(img);

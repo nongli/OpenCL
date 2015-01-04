@@ -2,6 +2,7 @@
 #include "util.h"
 
 #include <boost/algorithm/string.hpp>
+#include <boost/unordered_set.hpp>
 
 using namespace boost;
 using namespace std;
@@ -19,14 +20,19 @@ string DeviceInfo::ToString(bool detail) const {
   stringstream ss;
   ss << "Device " << name
       << " (" << (is_cpu() ? "CPU" : (is_gpu() ? "GPU" : "UNKNOWN")) << ")";
-  if (detail) {
-     ss << "  Vendor: " << vendor_string << endl
-        << "  NumComputeUnits: " << num_compute_units << endl
-        << "  MaxWorkGroupSize: " << max_work_group_size << endl
-        << "  MaxLocalMem: " << PrintBytes(max_local_mem) << endl
-        << "  MaxGlobalMem: " << PrintBytes(max_global_mem) << endl
-        << "  PtrAlignement: " << ptr_alignment << endl;
-  }
+  if (!detail) return ss.str();
+
+  ss << "  Vendor: " << vendor_string << endl
+     << "  NumComputeUnits: " << num_compute_units << endl
+     << "  MaxWorkGroupSize: " << max_work_group_size << endl
+     << "  MaxLocalMem: " << PrintBytes(max_local_mem) << endl
+     << "  MaxGlobalMem: " << PrintBytes(max_global_mem) << endl
+     << "  PtrAlignement: " << ptr_alignment << endl
+     << "  Extensions" << endl
+     << "    AtomicsInt32: " << (extensions.atomics_int32 ? "Yes" : "No") << endl
+     << "    AtomicsInt64: " << (extensions.atomics_int64 ? "Yes" : "No") << endl
+     << "    ByteAddressable: " << (extensions.byte_addressable ? "Yes" : "No") << endl
+     << "    Doubles: " << (extensions.double_precision ? "Yes" : "No") << endl;
   return ss.str();
 }
 
@@ -35,6 +41,41 @@ DeviceInfo::Vendor::Type ParseVendor(const string& vendor_string) {
     return DeviceInfo::Vendor::INTEL;
   }
   return DeviceInfo::Vendor::UNKNOWN;
+}
+
+static bool set_contains(const unordered_set<string>& s, const string& v) {
+  return s.find(v) != s.end();
+}
+
+void ParseExtensions(const string& str, DeviceInfo* info) {
+  memset(&info->extensions, 0, sizeof(info->extensions));
+  vector<string> strs;
+  split(strs, str, is_any_of(" "));
+  unordered_set<string> extensions;
+  for (int i = 0; i < strs.size(); ++i) {
+    to_lower(strs[i]);
+    extensions.insert(strs[i]);
+  }
+
+  if (set_contains(extensions, "cl_khr_fp64")) {
+    info->extensions.double_precision = true;
+  }
+
+  if (set_contains(extensions, "cl_khr_byte_addressable_store")) {
+    info->extensions.byte_addressable = true;
+  }
+
+  if (set_contains(extensions, "cl_khr_global_int32_base_atomics") &&
+      set_contains(extensions, "cl_khr_global_int32_extended_atomics") &&
+      set_contains(extensions, "cl_khr_global_int32_base_atomics") &&
+      set_contains(extensions, "cl_khr_local_int32_extended_atomics")) {
+    info->extensions.atomics_int32 = true;
+  }
+
+  if (set_contains(extensions, "cl_khr_int64_base_atomics") &&
+      set_contains(extensions, "cl_khr_int64_extended_atomics")) {
+    info->extensions.atomics_int64 = true;
+  }
 }
 
 bool GetDeviceInfo(DeviceInfo* info, cl_device_id id) {
@@ -49,18 +90,8 @@ bool GetDeviceInfo(DeviceInfo* info, cl_device_id id) {
   info->vendor_string = buf;
   info->vendor = ParseVendor(info->vendor_string);
 
-  // TODO
-  // cl_khr_global_int32_base_atomics
-  // cl_khr_global_int32_extended_atomics
-  // cl_khr_local_int32_base_atomics
-  // cl_khr_local_int32_extended_atomics
-  // cl_khr_int64_base_atomics
-  // cl_khr_int64_extended_atomics
-  //
-  // cl_khr_fp64
-  // cl_khr_byte_addressable_store
-  // clGetDeviceInfo(id, CL_DEVICE_EXTENSIONS, sizeof(buf), buf, NULL);
-  //printf("%s\n", buf);
+  clGetDeviceInfo(id, CL_DEVICE_EXTENSIONS, sizeof(buf), buf, NULL);
+  ParseExtensions(buf, info);
 
   clGetDeviceInfo(
       id, CL_DEVICE_TYPE, sizeof(cl_device_type), &info->type, NULL);

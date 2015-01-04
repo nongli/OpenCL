@@ -22,6 +22,9 @@ add_library(Core STATIC
 add_executable(example ${SRC_FILES} example.cc)
 target_link_libraries(example Core)
 
+add_executable(device_info ${SRC_FILES} device_info.cc)
+target_link_libraries(device_info Core)
+
 add_executable(copy_benchmark copy_benchmark.cc)
 target_link_libraries(copy_benchmark Core)
 

@@ -57,7 +57,7 @@ inline float sincos(float v, float* cos_result) {
 
 size_t get_global_id(int) { return 0; }
 
-// Include shared code between opencl and host code.
+// opencl has additional keywords.
 #define constant const
 #define global
 #define kernel

@@ -37,6 +37,14 @@ struct DeviceInfo {
 
   // The maximum number of work items in a work group.
   size_t max_work_group_size;
+
+  // Extensions supported on this device;
+  struct {
+    bool atomics_int32;
+    bool atomics_int64;
+    bool byte_addressable;
+    bool double_precision;
+  } extensions;
 };
 
 class Platform {
