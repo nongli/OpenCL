@@ -34,6 +34,9 @@ class Buffer {
   size_t size() const { return size_; }
 
  private:
+  Buffer(const Buffer&);
+  Buffer& operator=(const Buffer&);
+
   friend class Context;
   friend class Kernel;
 
@@ -59,6 +62,9 @@ class Kernel {
   std::string ToString(bool detail = false) const;
 
  private:
+  Kernel(const Kernel&);
+  Kernel& operator=(const Kernel&);
+
   friend class CommandQueue;
   friend class Context;
 
@@ -93,6 +99,9 @@ class Program {
   };
 
  private:
+  Program(const Program&);
+  Program& operator=(const Program&);
+
   friend class Context;
   Program(cl_program p) : program_(p) { }
   cl_program program() const { return program_; }
@@ -135,6 +144,9 @@ class CommandQueue {
   }
 
  private:
+  CommandQueue(const CommandQueue&);
+  CommandQueue& operator=(const CommandQueue&);
+
   friend class Buffer;
   friend class Context;
 
@@ -149,7 +161,7 @@ class Context {
   // Creates the context object. The context is the root of all the other created
   // objects. This is the *only* object that needs to be deleted. All objects
   // created off of this have lifetime equal to the context.
-  static Context* Create(const DeviceInfo* device);
+  static Context* Create(const DeviceInfo* device, bool enable_profiling = false);
   ~Context();
 
   const DeviceInfo* device() const { return device_; }
@@ -180,11 +192,14 @@ class Context {
   cl_int error() const { return err_; }
 
  private:
-  Context(const DeviceInfo* device);
+  Context(const DeviceInfo* device, bool enable_profiling);
+  Context(const Context&);
+  Context& operator=(const Context&);
 
   std::string GetBuildError(cl_program program);
 
   const DeviceInfo* device_; // unowned
+  const bool enable_profiling_;
   cl_context ctx_;
   cl_int err_; // Last error.
 

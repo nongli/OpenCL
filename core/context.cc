@@ -2,8 +2,8 @@
 
 using namespace std;
 
-Context* Context::Create(const DeviceInfo* device) {
-  Context* ctx = new Context(device);
+Context* Context::Create(const DeviceInfo* device, bool enable_profiling) {
+  Context* ctx = new Context(device, enable_profiling);
   ctx->ctx_ = clCreateContext(NULL, 1, &device->device(), NULL, NULL, &ctx->err_);
   if (ctx->err_ < 0) {
     delete ctx;
@@ -16,7 +16,8 @@ Context* Context::Create(const DeviceInfo* device) {
   return ctx;
 }
 
-Context::Context(const DeviceInfo* device) : device_(device), ctx_(NULL), err_(0) {
+Context::Context(const DeviceInfo* device, bool enable_profiling)
+  : device_(device), enable_profiling_(enable_profiling), ctx_(NULL), err_(0) {
 }
 
 Context::~Context() {
