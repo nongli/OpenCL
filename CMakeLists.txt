@@ -8,7 +8,11 @@ project (OpenCLTest)
 # cause another cmake executable to run. The same process will walk through
 # the project's entire directory structure.
 
-set(CMAKE_CXX_FLAGS "-Wall -framework OpenCL -g -O3")
+set(CMAKE_CXX_FLAGS "-Wall -framework OpenCL -g -I.")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+
+set(EXECUTABLE_OUTPUT_PATH "bin")
+set(LIBRARY_OUTPUT_PATH "bin")
 
 add_library(Core STATIC
   core/buffer.cc
@@ -19,14 +23,14 @@ add_library(Core STATIC
   core/util.cc
 )
 
-add_executable(example ${SRC_FILES} example.cc)
+add_executable(example examples/example.cc)
 target_link_libraries(example Core)
 
-add_executable(device_info ${SRC_FILES} device_info.cc)
+add_executable(device_info examples/device_info.cc)
 target_link_libraries(device_info Core)
 
-add_executable(copy_benchmark copy_benchmark.cc)
+add_executable(copy_benchmark examples/copy_benchmark.cc)
 target_link_libraries(copy_benchmark Core)
 
-add_executable(ambient_occlusion ambient_occlusion.cc)
+add_executable(ambient_occlusion examples/ambient_occlusion.cc)
 target_link_libraries(ambient_occlusion Core)

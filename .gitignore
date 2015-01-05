@@ -3,7 +3,6 @@ CMakeFiles/
 cmake_install.cmake
 Makefile
 
-*.a
-
-copy_benchmark
-example
+bin/*
+.DS_Store
+*.ppm
