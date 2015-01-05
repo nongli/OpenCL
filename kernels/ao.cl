@@ -157,7 +157,7 @@ inline float AmbientOcclusion(float px, float py,
   return visible / (float)(nao_samples);
 }
 
-kernel void traceOnePixel(global float *fimg, 
+kernel void TracePixel(global float *fimg, 
     constant Sphere* spheres, constant Plane* planes, int h, int w, 
     int nsubsamples, int nao_samples) {
   long gid = get_global_id(0);

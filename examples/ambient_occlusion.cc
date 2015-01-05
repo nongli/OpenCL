@@ -71,7 +71,6 @@ void InitScene() {
 }
 
 void SavePPM(const char* fname, int w, int h, unsigned char* img) {
-  ScopedTimeMeasure("Save time");
   FILE* fp = fopen(fname, "wb");
   fprintf(fp, "P6\n");
   fprintf(fp, "%d %d\n", w, h);
@@ -81,10 +80,12 @@ void SavePPM(const char* fname, int w, int h, unsigned char* img) {
 }
 
 void RenderOpenCl(unsigned char* img) {
+  const bool enable_profiling = true;
+
   float* ao = (float*)malloc(sizeof(float) * WIDTH * HEIGHT);
   memset(ao, 0, sizeof(float) * WIDTH * HEIGHT);
 
-  Context* ctx = Context::Create(Platform::default_device());
+  Context* ctx = Context::Create(Platform::default_device(), enable_profiling);
   Buffer* result_buffer = ctx->CreateBufferFromMem(
       Buffer::READ_WRITE, ao, sizeof(float) * WIDTH * HEIGHT);
   Buffer* spheres_buffer = ctx->CreateBufferFromMem(
@@ -92,7 +93,7 @@ void RenderOpenCl(unsigned char* img) {
   Buffer* plane_buffer  = ctx->CreateBufferFromMem(
       Buffer::READ_ONLY, &plane, sizeof(plane));
 
-  Kernel* kernel = ctx->CreateKernel("kernels/ao.cl", "traceOnePixel");
+  Kernel* kernel = ctx->CreateKernel("kernels/ao.cl", "TracePixel");
   kernel->SetArg(0, result_buffer);
   kernel->SetArg(1, spheres_buffer);
   kernel->SetArg(2, plane_buffer);
@@ -101,16 +102,17 @@ void RenderOpenCl(unsigned char* img) {
   kernel->SetArg(5, (cl_int)NSUBSAMPLES);
   kernel->SetArg(6, (cl_int)NAO_SAMPLES);
 
-  {
-    ScopedTimeMeasure("Render time");
-    ctx->default_queue()->EnqueueKernel(kernel, WIDTH * HEIGHT);
-    result_buffer->Read(ctx->default_queue());
-  }
+  ctx->default_queue()->EnqueueKernel(kernel, WIDTH * HEIGHT, -1);
+  result_buffer->Read(ctx->default_queue());
 
   for (int i = 0; i < WIDTH * HEIGHT; ++i) {
     img[i * 3 + 0] = Clamp(ao[i]);
     img[i * 3 + 1] = img[i * 3];
     img[i * 3 + 2] = img[i * 3];
+  }
+
+  if (enable_profiling) {
+    printf("Profile Events:\n\n%s", ctx->default_queue()->GetEventsProfile().c_str());
   }
 
   free(ao);

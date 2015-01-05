@@ -1,4 +1,5 @@
 #include "context.h"
+#include "core/util.h"
 
 using namespace std;
 
@@ -21,7 +22,8 @@ Context::Context(const DeviceInfo* device, bool enable_profiling)
 }
 
 Context::~Context() {
-  for (map<string, Program*>::iterator it = programs_.begin(); it != programs_.end(); ++it) {
+  for (map<string, Program*>::iterator it = programs_.begin();
+      it != programs_.end(); ++it) {
     delete it->second;
   }
   for (int i = 0; i < kernels_.size(); ++i) {
@@ -141,12 +143,16 @@ Kernel* Context::CreateKernel(Program* program, const char* fn_name) {
 }
 
 CommandQueue* Context::CreateCommandQueue() {
-  cl_command_queue queue = clCreateCommandQueue(ctx_, device_->device(), 0, &err_);
+  cl_command_queue_properties properties = 0;
+  if (enable_profiling_) properties |= CL_QUEUE_PROFILING_ENABLE;
+
+  cl_command_queue queue = clCreateCommandQueue(
+      ctx_, device_->device(), properties, &err_);
   if (err_ < 0) {
-    fprintf(stderr, "Could not create command queue.");
+    fprintf(stderr, "Could not create command queue: %s.", Error(err_));
     return NULL;
   }
-  CommandQueue* q = new CommandQueue(queue);
+  CommandQueue* q = new CommandQueue(queue, enable_profiling_);
   command_queues_.push_back(q);
   return q;
 }
@@ -168,4 +174,35 @@ Buffer* Context::CreateBufferFromMem(const Buffer::AccessType& access,
   buf->access_ = access;
   buffers_.push_back(buf);
   return buf;
+}
+
+void CommandQueue::EnqueueEvent(cl_event e, const string& name) {
+  if (!enable_profiling_) return;
+  profiling_events_.push_back(ProfileEvent(name == "" ? "Event" : name, e));
+}
+
+string CommandQueue::GetEventsProfile() const {
+  if (profiling_events_.empty()) return "";
+  stringstream ss;
+  cl_int err;
+  cl_ulong queue_start = -1;
+  for (int i = 0; i < profiling_events_.size(); ++i) {
+    cl_ulong queued, submit, start, end;
+    err = clGetEventProfilingInfo(profiling_events_[i].e,
+        CL_PROFILING_COMMAND_QUEUED, sizeof(cl_ulong), &queued, NULL);
+    err = clGetEventProfilingInfo(profiling_events_[i].e,
+        CL_PROFILING_COMMAND_SUBMIT, sizeof(cl_ulong), &submit, NULL);
+    err = clGetEventProfilingInfo(profiling_events_[i].e,
+        CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+    err = clGetEventProfilingInfo(profiling_events_[i].e,
+        CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+    if (queue_start == -1) queue_start = start;
+
+    ss << profiling_events_[i].name
+       << " (" << PrintNanos(start - queue_start) << ")" << endl
+       << "  Submit: " << PrintNanos(submit - queued) << endl
+       << "  Start: " << PrintNanos(start - submit) << endl
+       << "  End: " << PrintNanos(end - start) << endl;
+  }
+  return ss.str();
 }

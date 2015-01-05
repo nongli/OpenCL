@@ -18,6 +18,20 @@ string PrintBytes(long bytes) {
   return ss.str();
 }
 
+string PrintNanos(long value) {
+  stringstream ss;
+  if (value < 1000) {
+    ss << value << "ns";
+  } else if (value < 1000L * 1000L) {
+    ss << value / (1000.) << "us";
+  } else if (value < 1000L * 1000L * 1000L) {
+    ss << value / (1000. * 1000.) << "ms";
+  } else {
+    ss << value / (1000. * 1000. * 1000.) << "s";
+  }
+  return ss.str();
+}
+
 #include <CoreServices/CoreServices.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>

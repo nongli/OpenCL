@@ -4,6 +4,7 @@
 #include "common.h"
 
 std::string PrintBytes(long bytes);
+std::string PrintNanos(long value);
 double timestamp_ms();
 
 class ScopedTimeMeasure {

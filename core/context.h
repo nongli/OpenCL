@@ -60,6 +60,7 @@ class Kernel {
   const size_t max_work_group_size() const { return max_work_group_size_; }
 
   std::string ToString(bool detail = false) const;
+  std::string fn_name() const { return fn_name_; }
 
  private:
   Kernel(const Kernel&);
@@ -114,34 +115,31 @@ class CommandQueue {
     if (queue_ != NULL) clReleaseCommandQueue(queue_);
   }
 
-  bool EnqueueKernel(Kernel* kernel, size_t global_size, size_t local_size) {
+  // local_size can be set to -1 if the device should decide.
+  bool EnqueueKernel(Kernel* kernel, size_t global_size, int64_t local_size,
+      const std::string& event_name = "") {
+    cl_event event;
     cl_int err = clEnqueueNDRangeKernel(queue_, kernel->kernel_,
-        1, NULL, &global_size, &local_size, 0, NULL, NULL);
+        1, NULL, &global_size, local_size == -1 ? NULL : (size_t*)&local_size,
+        0, NULL, enable_profiling_ ? &event : NULL);
     if (err < 0) {
       fprintf(stderr, "Could not queue kernel: %s\n", Error(err));
       return false;
     }
-    return true;
-  }
-
-  bool EnqueueKernel(Kernel* kernel, size_t global_size) {
-    cl_int err = clEnqueueNDRangeKernel(queue_, kernel->kernel_,
-        1, NULL, &global_size, NULL, 0, NULL, NULL);
-    if (err < 0) {
-      fprintf(stderr, "Could not queue kernel: %s\n", Error(err));
-      return false;
-    }
+    EnqueueEvent(event, event_name == "" ? kernel->fn_name() : event_name);
     return true;
   }
 
   bool Flush() {
-    cl_int err = clFlush(queue_);
+    cl_int err = clFinish(queue_);
     if (err < 0) {
       fprintf(stderr, "Could not flush queu: %s\n", Error(err));
       return false;
     }
     return true;
   }
+
+  std::string GetEventsProfile() const;
 
  private:
   CommandQueue(const CommandQueue&);
@@ -152,8 +150,22 @@ class CommandQueue {
 
   cl_command_queue queue() { return queue_; }
 
-  CommandQueue(cl_command_queue queue) : queue_(queue) {}
+  CommandQueue(cl_command_queue queue, bool enable_profiling)
+    : queue_(queue), enable_profiling_(enable_profiling) {}
+
   cl_command_queue queue_;
+  const bool enable_profiling_;
+
+  // Only used if profiling is enabled.
+  struct ProfileEvent {
+    std::string name;
+    cl_event e;
+    ProfileEvent(const std::string& n, cl_event e) : name(n), e(e) {}
+    ProfileEvent() {}
+  };
+  std::vector<ProfileEvent> profiling_events_;
+
+  void EnqueueEvent(cl_event e, const std::string& name);
 };
 
 class Context {

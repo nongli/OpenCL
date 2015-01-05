@@ -19,31 +19,40 @@ Buffer::~Buffer() {
 }
 
 void* Buffer::Read(CommandQueue* queue) {
+  cl_event event;
   cl_int err = clEnqueueReadBuffer(queue->queue(), cl_buffer_, CL_TRUE, 0,
-      size_, host_ptr_, 0, NULL, NULL);
+      size_, host_ptr_, 0, NULL,
+      queue->enable_profiling_ ? &event : NULL);
   if (err < 0) {
     fprintf(stderr, "Could not read buffer: %s\n", Error(err));
     return NULL;
   }
+  queue->EnqueueEvent(event, "BufferRead");
   return host_ptr_;
 }
 
 bool Buffer::CopyFrom(CommandQueue* queue, const void* src_buffer, size_t buffer_len) {
+  cl_event event;
   cl_int err = clEnqueueWriteBuffer(queue->queue(), cl_buffer_, false,
-      0, buffer_len, src_buffer, 0, NULL, NULL);
+      0, buffer_len, src_buffer, 0, NULL,
+      queue->enable_profiling_ ? &event : NULL);
   if (err < 0) {
     fprintf(stderr, "Could not write buffer: %s\n", Error(err));
     return false;
   }
+  queue->EnqueueEvent(event, "BufferCopyFromHost");
   return true;
 }
 
 bool Buffer::CopyTo(CommandQueue* queue, void* dst_buffer, size_t buffer_len) {
+  cl_event event;
   cl_int err = clEnqueueReadBuffer(queue->queue(), cl_buffer_, CL_TRUE, 0,
-      buffer_len, dst_buffer, 0, NULL, NULL);
+      buffer_len, dst_buffer, 0, NULL,
+      queue->enable_profiling_ ? &event : NULL);
   if (err < 0) {
     fprintf(stderr, "Could not read buffer: %s\n", Error(err));
     return false;
   }
+  queue->EnqueueEvent(event, "BufferCopyToHost");
   return true;
 }

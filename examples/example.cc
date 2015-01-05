@@ -84,7 +84,7 @@ void Map(int num_values, int work_items, int iters,
   {
     ScopedTimeMeasure m("Map queue");
     for (int i = 0; i < iters; ++i) {
-      ctx->default_queue()->EnqueueKernel(kernel, work_items);
+      ctx->default_queue()->EnqueueKernel(kernel, work_items, -1);
     }
   }
 
@@ -137,7 +137,7 @@ void BitonicSort() {
         kernel->SetArg(2, (cl_uint)pass_of_stage);
         size_t global_size = input_size / (2 * 4);
         if (pass_of_stage == 0) global_size = global_size << 1;
-        ctx->default_queue()->EnqueueKernel(kernel, global_size);
+        ctx->default_queue()->EnqueueKernel(kernel, global_size, -1);
       }
     }
   }
