@@ -77,6 +77,21 @@ class Program {
     if (program_ != NULL) clReleaseProgram(program_);
   }
 
+  struct BuildOptions {
+    bool warnings_as_errors;
+    bool disable_optimizations;
+    bool strict_aliasing;
+    bool unsafe_math;
+
+    BuildOptions() {
+      memset(this, 0, sizeof(BuildOptions));
+      warnings_as_errors = true;
+      strict_aliasing = true;
+    }
+
+    std::string ToString() const;
+  };
+
  private:
   friend class Context;
   Program(cl_program p) : program_(p) { }
@@ -146,12 +161,16 @@ class Context {
   CommandQueue* CreateCommandQueue();
 
   // Loads a kernel from src_file with fn_name.
-  Kernel* CreateKernel(const char* src_file, const char* fn_name);
+  Kernel* CreateKernel(const char* src_file, const char* fn_name,
+      const Program::BuildOptions& = Program::BuildOptions());
   Kernel* CreateKernel(Program* program, const char* fn_name);
 
   // Creates a program file from a file or in memory .cl code.
-  Program* CreateProgramFromFile(const char* path);
-  Program* CreateProgramFromSrc(const char* source, size_t size);
+  Program* CreateProgramFromFile(const char* path,
+      const Program::BuildOptions& = Program::BuildOptions());
+  Program* CreateProgramFromSrc(const char* source, size_t size,
+    const Program::BuildOptions& = Program::BuildOptions(),
+    const char* filename = NULL);
 
   // Creates buffers shared between the host and opencl
   Buffer* CreateBufferFromMem(const Buffer::AccessType& access,
@@ -162,6 +181,8 @@ class Context {
 
  private:
   Context(const DeviceInfo* device);
+
+  std::string GetBuildError(cl_program program);
 
   const DeviceInfo* device_; // unowned
   cl_context ctx_;

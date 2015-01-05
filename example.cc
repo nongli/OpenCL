@@ -8,17 +8,6 @@
 
 using namespace std;
 
-void DumpDevices() {
-  for (int i = 0; i < Platform::num_devices(); ++i) {
-    printf("%s\n", Platform::device(i)->ToString(true).c_str());
-  }
-  printf("\n");
-
-  printf("Default Device: %s\n", Platform::default_device()->ToString().c_str());
-  printf("CPU Device: %s\n", Platform::cpu_device()->ToString().c_str());
-  printf("GPU Device: %s\n", Platform::gpu_device()->ToString().c_str());
-}
-
 // This is a very simple example that doesn't handle different input very well
 // or run the cpu device.
 void ArraySum() {
@@ -170,12 +159,10 @@ int main(int argc, char** argv) {
     Platform::Init();
   }
 
-  DumpDevices();
-  printf("\n");
-  //ArraySum();
-  //BitonicSort();
-  Map<float>(1024 * 1024, 1024 * 1024, 10000, "kernels/kernels.cl", "SimpleKernel");
-  Map<float>(1024 * 1024, 1024 * 1024 / 4, 10000, "kernels/kernels.cl", "SimpleKernel4");
+  ArraySum();
+//  BitonicSort();
+//  Map<float>(1024 * 1024, 1024 * 1024, 10000, "kernels/kernels.cl", "SimpleKernel");
+//  Map<float>(1024 * 1024, 1024 * 1024 / 4, 10000, "kernels/kernels.cl", "SimpleKernel4");
 
   printf("Done.\n");
   return 0;

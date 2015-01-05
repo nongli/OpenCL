@@ -35,13 +35,24 @@ Context::~Context() {
   if (ctx_ != NULL) clReleaseContext(ctx_);
 }
 
-Kernel* Context::CreateKernel(const char* path, const char* fn_name) {
-  Program* program = CreateProgramFromFile(path);
+string Program::BuildOptions::ToString() const {
+  stringstream ss;
+  if (warnings_as_errors) ss << " -Werror";
+  if (disable_optimizations) ss << " -cl-opt-disable";
+  if (strict_aliasing) ss << " -cl-strict-aliasing";
+  if (unsafe_math) ss << " -cl-fast-relaxed-math";
+  return ss.str();
+}
+
+Kernel* Context::CreateKernel(const char* path, const char* fn_name,
+    const Program::BuildOptions& options) {
+  Program* program = CreateProgramFromFile(path, options);
   if (program == NULL) return NULL;
   return CreateKernel(program, fn_name);
 }
 
-Program* Context::CreateProgramFromFile(const char* path) {
+Program* Context::CreateProgramFromFile(const char* path,
+    const Program::BuildOptions& options) {
   if (programs_.find(path) != programs_.end()) return programs_[path];
 
   FILE* file = fopen(path, "r");
@@ -58,39 +69,46 @@ Program* Context::CreateProgramFromFile(const char* path) {
   fread(&buffer[0], sizeof(char), size, file);
   fclose(file);
 
-  Program* program = CreateProgramFromSrc(&buffer[0], size);
+  Program* program = CreateProgramFromSrc(&buffer[0], size, options, path);
   if (program == NULL) return program;
   programs_[path] = program;
   return program;
 };
 
-Program* Context::CreateProgramFromSrc(const char* source, size_t size) {
+string Context::GetBuildError(cl_program program) {
+  size_t log_size;
+  cl_int err = clGetProgramBuildInfo(
+      program, device_->device(), CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
+  if (err < 0) {
+    fprintf(stderr, "Could not get build log size: %s\n", Error(err));
+    return NULL;
+  }
+  vector<char> log;
+  log.resize(log_size + 1);
+  err = clGetProgramBuildInfo(
+      program, device_->device(), CL_PROGRAM_BUILD_LOG, log_size, &log[0], NULL);
+  if (err < 0) {
+    fprintf(stderr, "Could not get build log: %s\n", Error(err));
+    return NULL;
+  }
+  return &log[0];
+}
+
+Program* Context::CreateProgramFromSrc(const char* source, size_t size,
+    const Program::BuildOptions& options, const char* filename) {
   cl_program program = clCreateProgramWithSource(ctx_, 1, &source, &size, &err_);
   if (err_ < 0) {
     fprintf(stderr, "Could not create program: %s.\n", Error(err_));
     return NULL;
   }
-  err_ = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
+  string build_str = options.ToString();
+  err_ = clBuildProgram(program, 0, NULL, build_str.c_str(), NULL, NULL);
   if (err_ < 0) {
+    const string& errors = GetBuildError(program);
     fprintf(stderr, "Could not build program: %s\n", Error(err_));
-    size_t log_size;
-    err_ = clGetProgramBuildInfo(
-        program, device_->device(), CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
-    if (err_ < 0) {
-      fprintf(stderr, "Could not get build log size: %s\n", Error(err_));
-      return NULL;
-    }
-    vector<char> log;
-    log.resize(log_size + 1);
-    err_ = clGetProgramBuildInfo(
-        program, device_->device(), CL_PROGRAM_BUILD_LOG, log_size, &log[0], NULL);
-    if (err_ < 0) {
-      fprintf(stderr, "Could not get build log: %s\n", Error(err_));
-      return NULL;
-    }
-    fprintf(stderr, "BUILD LOG\n");
+    if (filename != NULL) fprintf(stderr, "Erros in file %s\n", filename);
     fprintf(stderr, "**************************************************************************\n");
-    fprintf(stderr, "%s\n", &log[0]);
+    fprintf(stderr, "%s\n", errors.c_str());
     fprintf(stderr, "**************************************************************************\n");
     return NULL;
   }
