@@ -15,10 +15,7 @@ using namespace std;
 #define WIDTH        512
 #define HEIGHT       512
 #define NSUBSAMPLES  3
-//#define NAO_SAMPLES  (32*32)
-
-#define NAO_SAMPLES  1600
-//#define NAO_SAMPLES  8
+#define NAO_SAMPLES  1000
 
 // Include the opencl file and cross compile it.
 #include "shim/shim_begin.h"

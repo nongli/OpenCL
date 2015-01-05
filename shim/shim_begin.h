@@ -47,7 +47,6 @@ inline float4 cross(const float4& v1, const float4& v2) {
 inline float4 normalize(const float4& v) {
   float length = sqrt(dot(v, v));
   if (fabs(length) > 1.0e-17) return v / length;
-  printf("So confused\n");
   return v;
 }
 inline float sincos(float v, float* cos_result) {

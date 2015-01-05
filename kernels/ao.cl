@@ -19,7 +19,6 @@ typedef struct _sphere {
 } Sphere;
 
 typedef struct _plane {
-  //float4 p;
   float4 n;
   float d;
   float pad[3];
