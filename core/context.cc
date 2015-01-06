@@ -26,13 +26,13 @@ Context::~Context() {
       it != programs_.end(); ++it) {
     delete it->second;
   }
-  for (int i = 0; i < kernels_.size(); ++i) {
+  for (size_t i = 0; i < kernels_.size(); ++i) {
     delete kernels_[i];
   }
-  for (int i = 0; i < command_queues_.size(); ++i) {
+  for (size_t i = 0; i < command_queues_.size(); ++i) {
     delete command_queues_[i];
   }
-  for (int i = 0; i < buffers_.size(); ++i) {
+  for (size_t i = 0; i < buffers_.size(); ++i) {
     delete buffers_[i];
   }
   if (ctx_ != NULL) clReleaseContext(ctx_);
@@ -64,12 +64,13 @@ Program* Context::CreateProgramFromFile(const char* path,
     return NULL;
   }
   fseek(file, 0, SEEK_END);
-  int size = ftell(file);
+  size_t size = ftell(file);
   rewind(file);
 
   vector<char> buffer;
   buffer.resize(size + 1);
-  fread(&buffer[0], sizeof(char), size, file);
+  size_t num_bytes = fread(&buffer[0], sizeof(char), size, file);
+  assert(num_bytes == size);
   fclose(file);
 
   Program* program = CreateProgramFromSrc(&buffer[0], size, options, path);
@@ -185,8 +186,8 @@ string CommandQueue::GetEventsProfile() const {
   if (profiling_events_.empty()) return "";
   stringstream ss;
   cl_int err;
-  cl_ulong queue_start = -1;
-  for (int i = 0; i < profiling_events_.size(); ++i) {
+  cl_ulong queue_start = 0;
+  for (size_t i = 0; i < profiling_events_.size(); ++i) {
     cl_ulong queued, submit, start, end;
     err = clGetEventProfilingInfo(profiling_events_[i].e,
         CL_PROFILING_COMMAND_QUEUED, sizeof(cl_ulong), &queued, NULL);
@@ -196,7 +197,7 @@ string CommandQueue::GetEventsProfile() const {
         CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
     err = clGetEventProfilingInfo(profiling_events_[i].e,
         CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
-    if (queue_start == -1) queue_start = start;
+    if (queue_start == 0) queue_start = start;
 
     ss << profiling_events_[i].name
        << " (" << PrintNanos(start - queue_start) << ")" << endl

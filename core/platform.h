@@ -1,7 +1,11 @@
 #ifndef NONG_PLATFORM_H
 #define NONG_PLATFORM_H
 
+#ifdef __APPLE__
 #include <OpenCl/opencl.h>
+#else
+#include <CL/cl.h>
+#endif
 
 #include "common.h"
 

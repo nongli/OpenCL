@@ -9,6 +9,11 @@
 using namespace std;
 
 void DumpDevices() {
+  if (Platform::num_devices() == 0) {
+    printf("No devices.\n");
+    return;
+  }
+
   for (int i = 0; i < Platform::num_devices(); ++i) {
     printf("%s\n", Platform::device(i)->ToString(true).c_str());
   }
@@ -22,9 +27,7 @@ void DumpDevices() {
 int main(int argc, char** argv) {
   ScopedTimeMeasure m("Init");
   Platform::Init();
-
   DumpDevices();
-
   printf("Done.\n");
   return 0;
 }

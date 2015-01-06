@@ -1,9 +1,6 @@
 #ifndef NONG_CONTEXT_H
 #define NONG_CONTEXT_H
 
-#include <OpenCl/opencl.h>
-#include "common.h"
-
 #include "platform.h"
 
 class CommandQueue;

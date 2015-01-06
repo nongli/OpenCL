@@ -32,10 +32,14 @@ string PrintNanos(long value) {
   return ss.str();
 }
 
+#ifdef __APPLE__
 #include <CoreServices/CoreServices.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
 #include <unistd.h>
+#else
+#include <sys/time.h>
+#endif
 
 double timestamp_ms() {
   struct timeval t;

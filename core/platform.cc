@@ -23,6 +23,7 @@ string VersionToString(DeviceInfo::Version::Type t) {
     case DeviceInfo::Version::OPEN_CL_1_2: return "1.2";
     case DeviceInfo::Version::OPEN_CL_2_0: return "2.0";
   }
+  return "";
 }
 
 string DeviceInfo::ToString(bool detail) const {
@@ -73,7 +74,7 @@ void ParseExtensions(const string& str, DeviceInfo* info) {
   vector<string> strs;
   split(strs, str, is_any_of(" "));
   unordered_set<string> extensions;
-  for (int i = 0; i < strs.size(); ++i) {
+  for (size_t i = 0; i < strs.size(); ++i) {
     to_lower(strs[i]);
     extensions.insert(strs[i]);
   }
@@ -157,7 +158,7 @@ bool Platform::Init() {
   clGetDeviceIDs(NULL, CL_DEVICE_TYPE_ALL, num_devices_, ids, NULL);
   devices_ = new DeviceInfo[num_devices_];
 
-  for (int i = 0; i < num_devices_; ++i) {
+  for (size_t i = 0; i < num_devices_; ++i) {
     if (!GetDeviceInfo(&devices_[i], ids[i])) return false;
     EnableDeviceOptimizations(&devices_[i]);
 
